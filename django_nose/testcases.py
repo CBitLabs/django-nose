@@ -3,14 +3,14 @@ import sys
 
 from django import test
 from django.conf import settings
+from django.contrip.staticfiles.testing import StaticLiveServerTestCase
 from django.core import cache, mail
+from django.core.exceptions import ImproperlyConfigured
 from django.core.management import call_command
 from django.db import connections, DEFAULT_DB_ALIAS, transaction
+from django.utils import six
 from django_nose.fixture_tables import tables_used_by_fixtures
 from django_nose.utils import uses_mysql
-from django.core.exceptions import ImproperlyConfigured
-from django.test import LiveServerTestCase
-from django.utils import six
 
 
 __all__ = ['FastFixtureTestCase', 'FastFixtureLiveServerTestCase']
@@ -38,31 +38,31 @@ class FastFixtureTestCase(test.TransactionTestCase):
 
     """
     cleans_up_after_itself = True  # This is the good kind of puppy.
+    transaction_state = {}      # record whether state of autocommit for each database
 
     @classmethod
     def setUpClass(cls):
         """Turn on manual commits. Load and commit the fixtures."""
+        transaction.set_autocommit(False)
         if not test.testcases.connections_support_transactions():
             raise NotImplementedError('%s supports only DBs with transaction '
                                       'capabilities.' % cls.__name__)
-        for db in cls._databases():
-            # These MUST be balanced with one leave_* each:
-            transaction.enter_transaction_management(using=db)
-            # Don't commit unless we say so:
-            transaction.managed(True, using=db)
 
+        # set all database to 'not autocommit' and store their original autocommit state
+        for db in cls._databases():
+            cls.transaction_state[db] = transaction.get_autocommit(using=db)
+            transaction.set_autocommit(False, using=db)
         cls._fixture_setup()
 
     @classmethod
     def tearDownClass(cls):
         """Truncate the world, and turn manual commit management back off."""
         cls._fixture_teardown()
+
+        # commit all changes in this transaction and set autocommit state back to original
         for db in cls._databases():
-            # Finish off any transactions that may have happened in
-            # tearDownClass in a child method.
-            if transaction.is_dirty(using=db):
-                transaction.commit(using=db)
-            transaction.leave_transaction_management(using=db)
+            transaction.commit(using=db)
+            transaction.set_autocommit(cls.transaction_state[db], using=db)
 
     @classmethod
     def _fixture_setup(cls):
@@ -123,11 +123,7 @@ class FastFixtureTestCase(test.TransactionTestCase):
         cache.cache.clear()
         settings.TEMPLATE_DEBUG = settings.DEBUG = False
 
-        test.testcases.disable_transaction_methods()
-
         self.client = self.client_class()
-        #self._fixture_setup()
-        self._urlconf_setup()
         mail.outbox = []
 
         # Clear site cache in case somebody's mutated Site objects and then
@@ -143,11 +139,8 @@ class FastFixtureTestCase(test.TransactionTestCase):
 
         """
         # Rollback any mutations made by tests:
-        test.testcases.restore_transaction_methods()
         for db in self._databases():
             transaction.rollback(using=db)
-
-        self._urlconf_teardown()
 
         # We do not need to close the connection here to prevent
         # http://code.djangoproject.com/ticket/7572, since we commit, not
@@ -164,7 +157,7 @@ class FastFixtureTestCase(test.TransactionTestCase):
             return [DEFAULT_DB_ALIAS]
 
 
-class FastFixtureLiveServerTestCase(LiveServerTestCase):
+class FastFixtureLiveServerTestCase(StaticLiveServerTestCase):
 
     """
     Similar to django_nose.testcases.FastFixtureTestCase, except meant for Live Server tests.
@@ -234,10 +227,9 @@ class FastFixtureLiveServerTestCase(LiveServerTestCase):
             msg = 'Invalid address ("%s") for live server.' % specified_address
             six.reraise(ImproperlyConfigured, ImproperlyConfigured(msg), sys.exc_info()[2])
         cls.server_thread = test.testcases.LiveServerThread(
-            host, possible_ports, connections_override)
+            host, possible_ports, cls.static_handler, connections_override=connections_override)
         cls.server_thread.daemon = True
         cls.server_thread.start()
-
         # Wait for the live server to be ready
         cls.server_thread.is_ready.wait()
         if cls.server_thread.error:
@@ -249,15 +241,10 @@ class FastFixtureLiveServerTestCase(LiveServerTestCase):
 
         # from django_nose.testcases.FastFixtureTestCase
         # Turn on manual commits. Load and commit the fixtures.
+        transaction.set_autocommit(False)
         if not test.testcases.connections_support_transactions():
             raise NotImplementedError('%s supports only DBs with transaction '
                                       'capabilities.' % cls.__name__)
-        for db in cls._databases():
-            # These MUST be balanced with one leave_* each:
-            transaction.enter_transaction_management(using=db)
-            # Don't commit unless we say so:
-            transaction.managed(True, using=db)
-
         cls._fixture_setup()
 
     @classmethod
@@ -267,6 +254,7 @@ class FastFixtureLiveServerTestCase(LiveServerTestCase):
         # reasons has raised an exception.
         if hasattr(cls, 'server_thread'):
             # Terminate the live server's thread
+            cls.server_thread.terminate()
             cls.server_thread.join()
 
         # Restore sqlite connections' non-sharability
@@ -285,11 +273,7 @@ class FastFixtureLiveServerTestCase(LiveServerTestCase):
         # Truncate the world, and turn manual commit management back off.
         cls._fixture_teardown()
         for db in cls._databases():
-            # Finish off any transactions that may have happened in
-            # tearDownClass in a child method.
-            if transaction.is_dirty(using=db):
-                transaction.commit(using=db)
-            transaction.leave_transaction_management(using=db)
+            transaction.commit(using=db)
 
     @classmethod
     def _fixture_setup(cls):
@@ -357,13 +341,12 @@ class FastFixtureLiveServerTestCase(LiveServerTestCase):
         """
         # Repeat stuff from TransactionTestCase, because I'm not calling its
         # _pre_setup, because that would load fixtures again.
+        transaction.set_autocommit(False)
         cache.cache.clear()
         settings.TEMPLATE_DEBUG = settings.DEBUG = False
 
-        test.testcases.disable_transaction_methods()
-
         self.client = self.client_class()
-        #self._fixture_setup()
+        # self._fixture_setup()
         self._urlconf_setup()
         mail.outbox = []
 
@@ -380,12 +363,9 @@ class FastFixtureLiveServerTestCase(LiveServerTestCase):
         data is again visible.
         """
         # Rollback any mutations made by tests:
-        test.testcases.restore_transaction_methods()
         for db in self._databases():
             transaction.rollback(using=db)
-
         self._urlconf_teardown()
-
         # We do not need to close the connection here to prevent
         # http://code.djangoproject.com/ticket/7572, since we commit, not
         # rollback, the test fixtures and thus any cursor startup statements.
