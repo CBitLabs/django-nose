@@ -3,4 +3,5 @@
 *~
 *.egg-info
 .DS_Store
-
+.idea/
+django_nose/.idea/
