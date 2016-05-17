@@ -3,7 +3,7 @@ import sys
 
 from django import test
 from django.conf import settings
-from django.contrip.staticfiles.testing import StaticLiveServerTestCase
+from django.contrib.staticfiles.testing import StaticLiveServerTestCase
 from django.core import cache, mail
 from django.core.exceptions import ImproperlyConfigured
 from django.core.management import call_command
