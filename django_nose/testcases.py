@@ -1,8 +1,8 @@
-import os
-import sys
 # coding: utf-8
 """TestCases that enable extra django-nose functionality."""
 from __future__ import unicode_literals
+import os
+import sys
 
 from django import test
 from django.conf import settings
