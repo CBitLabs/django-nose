@@ -1,3 +1,6 @@
+# coding: utf-8
+"""TestCases that enable extra django-nose functionality."""
+from __future__ import unicode_literals
 import os
 import sys
 
@@ -17,7 +20,7 @@ __all__ = ['FastFixtureTestCase', 'FastFixtureLiveServerTestCase']
 
 
 class FastFixtureTestCase(test.TransactionTestCase):
-    """Test case that loads fixtures once and for all rather than once per test
+    """Test case that loads fixtures once rather than once per test.
 
     Using this can save huge swaths of time while still preserving test
     isolation. Fixture data is loaded at class setup time, and the transaction
@@ -35,8 +38,8 @@ class FastFixtureTestCase(test.TransactionTestCase):
     For best speed, group tests using the same fixtures into as few classes as
     possible. Better still, don't do that, and instead use the fixture-bundling
     plugin from django-nose, which does it dynamically at test time.
-
     """
+
     cleans_up_after_itself = True  # This is the good kind of puppy.
     transaction_state = {}      # record whether state of autocommit for each database
 
@@ -69,7 +72,7 @@ class FastFixtureTestCase(test.TransactionTestCase):
         """Load fixture data, and commit."""
         for db in cls._databases():
             if (hasattr(cls, 'fixtures') and
-                getattr(cls, '_fb_should_setup_fixtures', True)):
+                    getattr(cls, '_fb_should_setup_fixtures', True)):
                 # Iff the fixture-bundling test runner tells us we're the first
                 # suite having these fixtures, set them up:
                 call_command('loaddata', *cls.fixtures, **{'verbosity': 0,
@@ -124,6 +127,8 @@ class FastFixtureTestCase(test.TransactionTestCase):
         settings.TEMPLATE_DEBUG = settings.DEBUG = False
 
         self.client = self.client_class()
+        # self._fixture_setup()
+        self._urlconf_setup()
         mail.outbox = []
 
         # Clear site cache in case somebody's mutated Site objects and then

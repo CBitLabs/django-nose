@@ -1,68 +1,5 @@
-===========
-django-nose
-===========
-
-.. image:: https://img.shields.io/pypi/v/django-nose.svg
-    :alt: The PyPI package
-    :target: https://pypi.python.org/pypi/django-nose
-
-.. image:: https://img.shields.io/pypi/dw/django-nose.svg
-    :alt: PyPI download statistics
-    :target: https://pypi.python.org/pypi/django-nose
-
-.. image:: https://img.shields.io/travis/django-nose/django-nose/master.svg
-    :alt: TravisCI Build Status
-    :target: https://travis-ci.org/django-nose/django-nose
-
-.. image:: https://img.shields.io/coveralls/django-nose/django-nose/master.svg
-    :alt: Coveralls Test Coverage
-    :target: https://coveralls.io/r/django-nose/django-nose?branch=master
-
-.. Omit badges from docs
-
-**django-nose** provides all the goodness of `nose`_ in your Django tests, like:
-
-  * Testing just your apps by default, not all the standard ones that happen to
-    be in ``INSTALLED_APPS``
-  * Running the tests in one or more specific modules (or apps, or classes, or
-    folders, or just running a specific test)
-  * Obviating the need to import all your tests into ``tests/__init__.py``.
-    This not only saves busy-work but also eliminates the possibility of
-    accidentally shadowing test classes.
-  * Taking advantage of all the useful `nose plugins`_
-
-.. _nose: https://nose.readthedocs.org/en/latest/
-.. _nose plugins: http://nose-plugins.jottit.com/
-
-It also provides:
-
-Installation
-------------
-
-You can get django-nose from PyPI with... ::
-
-    pip install django-nose
-
-The development version can be installed with... ::
-
-    pip install -e git://github.com/django-nose/django-nose.git#egg=django-nose
-
-Since django-nose extends Django's built-in test command, you should add it to
-your ``INSTALLED_APPS`` in ``settings.py``::
-
-    INSTALLED_APPS = (
-        ...
-        'django_nose',
-        ...
-    )
-
-Then set ``TEST_RUNNER`` in ``settings.py``::
-
-    TEST_RUNNER = 'django_nose.NoseTestSuiteRunner'
-
-
-Use
----
+Usage
+=====
 
 The day-to-day use of django-nose is mostly transparent; just run ``./manage.py
 test`` as usual.
@@ -70,11 +7,15 @@ test`` as usual.
 See ``./manage.py help test`` for all the options nose provides, and look to
 the `nose docs`_ for more help with nose.
 
-.. _nose docs: http://somethingaboutorange.com/mrl/projects/nose/
-
+.. _nose docs: https://nose.readthedocs.org
 
 Enabling Database Reuse
 -----------------------
+
+.. warning:: There are several
+   `open issues <https://github.com/django-nose/django-nose/milestones/Fix%20REUSE_DB=1>`_
+   with this feature, including
+   `reports of data loss <https://github.com/django-nose/django-nose/issues/76>`_.
 
 You can save several seconds at the beginning and end of your test suite by
 reusing the test database from the last run. To do this, set the environment
@@ -94,12 +35,15 @@ you want to use it.
 Enabling Fast Fixtures
 ----------------------
 
+.. warning:: There are several
+   `known issues <https://github.com/django-nose/django-nose/milestones/Fix%20FastFixtureTestCase>`_
+   with this feature.
+
 django-nose includes a fixture bundler which drastically speeds up your tests
 by eliminating redundant setup of Django test fixtures. To use it...
 
 1. Subclass ``django_nose.FastFixtureTestCase`` instead of
-   ``django.test.TestCase`` or ``django_nose.FastFixtureLiveServerTestCase`` instead of
-   ``django.test.LiveServerTestCase``. (I like to import it ``as TestCase`` in my
+   ``django.test.TestCase``. (I like to import it ``as TestCase`` in my
    project's ``tests/__init__.py`` and then import it from there into my actual
    tests. Then it's easy to sub the base class in and out.) This alone will
    cause fixtures to load once per class rather than once per test.
@@ -137,9 +81,9 @@ sources of state leakage we have encountered:
   this automatically.
 
 It's also possible that you have ``post_save`` signal handlers which create
-additional database rows while loading the fixtures. ``FastFixtureTestCase`` and
-``FastFixtureLiveServerTestCase`` aren't yet smart enough to notice this and
-clean up after it, so you'll have to go back to plain old ``TestCase`` for now.
+additional database rows while loading the fixtures. ``FastFixtureTestCase``
+isn't yet smart enough to notice this and clean up after it, so you'll have to
+go back to plain old ``TestCase`` for now.
 
 Exempting A Class From Bundling
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -190,7 +134,7 @@ You can thus enjoy a big speed boost any time you make a TransactionTestCase
 clean up after itself: skipping a whole DB flush before every test. With a
 large schema, this can save minutes of IO.
 
-django-nose's own FastFixtureTestCase and FastFixtureLiveServerTestCase uses this feature, even though it
+django-nose's own FastFixtureTestCase uses this feature, even though it
 ultimately acts more like a TestCase than a TransactionTestCase.
 
 .. _can leave the DB in an unclean state: https://docs.djangoproject.com/en/1.4/topics/testing/#django.test.TransactionTestCase
@@ -251,7 +195,7 @@ setup.cfg`_ (as usual) or you can specify them in settings.py like this::
 
     NOSE_ARGS = ['--failed', '--stop']
 
-.. _nose.cfg or setup.cfg: http://somethingaboutorange.com/mrl/projects/nose/0.11.2/usage.html#configuration
+.. _nose.cfg or setup.cfg: https://nose.readthedocs.org/en/latest/usage.html#configuration
 
 
 Custom Plugins
@@ -269,89 +213,5 @@ Just like middleware or anything else, each string must be a dot-separated,
 importable path to an actual class. Each plugin class will be instantiated and
 added to the Nose test runner.
 
-.. _make custom plugins: http://somethingaboutorange.com/mrl/projects/nose/0.11.2/plugins.html#writing-plugins
+.. _make custom plugins: https://nose.readthedocs.org/en/latest/plugins.html#writing-plugins
 
-
-Older Versions of Django
-------------------------
-Upgrading from Django <= 1.3 to Django 1.4
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-In versions of Django < 1.4 the project folder was in fact a python package as
-well (note the __init__.py in your project root). In Django 1.4, there is no
-such file and thus the project is not a python module.
-
-**When you upgrade your Django project to the Django 1.4 layout, you need to
-remove the __init__.py file in the root of your project (and move any python
-files that reside there other than the manage.py) otherwise you will get a
-`ImportError: No module named urls` exception.**
-
-This happens because Nose will intelligently try to populate your sys.path, and
-in this particular case includes your parent directory if your project has a
-__init__.py file (see: https://github.com/nose-devs/nose/blob/release_1.1.2/nose/importer.py#L134).
-
-This means that even though you have set up your directory structure properly and
-set your `ROOT_URLCONF='my_project.urls'` to match the new structure, when running
-django-nose's test runner it will try to find your urls.py file in `'my_project.my_project.urls'`.
-
-
-Upgrading from Django < 1.2
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Django 1.2 switches to a `class-based test runner`_. To use django-nose
-with Django 1.2, change your ``TEST_RUNNER`` from ``django_nose.run_tests`` to
-``django_nose.NoseTestSuiteRunner``.
-
-``django_nose.run_tests`` will continue to work in Django 1.2 but will raise a
-warning. In Django 1.3, it will stop working.
-
-If you were using ``django_nose.run_gis_tests``, you should also switch to
-``django_nose.NoseTestSuiteRunner`` and use one of the `spatial backends`_ in
-your ``DATABASES`` settings.
-
-.. _class-based test runner: http://docs.djangoproject.com/en/dev/releases/1.2/#function-based-test-runners
-.. _spatial backends: http://docs.djangoproject.com/en/dev/ref/contrib/gis/db-api/#id1
-
-Django 1.1
-~~~~~~~~~~
-
-If you want to use django-nose with Django 1.1, use
-https://github.com/django-nose/django-nose/tree/django-1.1 or
-http://pypi.python.org/pypi/django-nose/0.0.3.
-
-Django 1.0
-~~~~~~~~~~
-
-django-nose does not support Django 1.0.
-
-
-Recent Version History
-----------------------
-
-1.3 (2014-12-05)
-  * Django 1.6 and 1.7 support (conrado, co3k, Nepherhotep, mbertheau)
-  * Python 3.3 and 3.4 testing and support (frewsxcv, jsocol)
-
-1.2 (2013-07-23)
-  * Python 3 support (melinath and jonashaag)
-  * Django 1.5 compat (fabiosantoscode)
-  * Fixture bundling, an optional feature which speeds up your fixture-based
-    tests by a factor of 4
-  * Reuse of previously created test DBs, cutting 10 seconds off startup time
-  * Hygienic TransactionTestCases, which can save you a DB flush per test
-  * Support for various databases. Tested with MySQL, PostgreSQL, and SQLite.
-    Others should work as well.
-
-django-nose requires nose 1.2.1 or later, and the `latest release`_ is
-recommended.  It follows the `Django's support policy`_, supporting:
-
-  * Django 1.8 (LTS) with Python 2.7, 3.4, or 3.5
-  * Django 1.9 with Python 2.7, 3.4, or 3.5
-
-.. _latest release: https://pypi.python.org/pypi/nose
-.. _Django's support policy: https://docs.djangoproject.com/en/1.8/internals/release-process/#supported-versions
-
-Development
------------
-:Code:   https://github.com/django-nose/django-nose
-:Issues: https://github.com/django-nose/django-nose/issues?state=open
-:Docs:   https://django-nose.readthedocs.org
