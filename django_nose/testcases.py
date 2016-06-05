@@ -46,7 +46,6 @@ class FastFixtureTestCase(test.TransactionTestCase):
     @classmethod
     def setUpClass(cls):
         """Turn on manual commits. Load and commit the fixtures."""
-        transaction.set_autocommit(False)
         if not test.testcases.connections_support_transactions():
             raise NotImplementedError('%s supports only DBs with transaction '
                                       'capabilities.' % cls.__name__)
@@ -135,7 +134,6 @@ class FastFixtureTestCase(test.TransactionTestCase):
         # cached the mutated stuff:
         from django.contrib.sites.models import Site
         Site.objects.clear_cache()
-
     def _post_teardown(self):
         """Re-enable transaction methods, and roll back any changes.
 
@@ -146,14 +144,13 @@ class FastFixtureTestCase(test.TransactionTestCase):
         # Rollback any mutations made by tests:
         for db in self._databases():
             transaction.rollback(using=db)
-
+            # transaction.get_connection(using=db).needs_rollback = False
         # We do not need to close the connection here to prevent
         # http://code.djangoproject.com/ticket/7572, since we commit, not
         # rollback, the test fixtures and thus any cursor startup statements.
 
         # Don't call through to superclass, because that would call
         # _fixture_teardown() and close the connection.
-
     @classmethod
     def _databases(cls):
         if getattr(cls, 'multi_db', False):
@@ -191,6 +188,7 @@ class FastFixtureLiveServerTestCase(StaticLiveServerTestCase):
 
     # from django_nose.testcases.FastFixtureTestCase
     cleans_up_after_itself = True  # This is the good kind of puppy.
+    transaction_state = {}      # record whether state of autocommit for each database
 
     @classmethod
     def setUpClass(cls):
@@ -243,13 +241,16 @@ class FastFixtureLiveServerTestCase(StaticLiveServerTestCase):
             cls._tearDownClassInternal()
             raise cls.server_thread.error
 
-
         # from django_nose.testcases.FastFixtureTestCase
         # Turn on manual commits. Load and commit the fixtures.
-        transaction.set_autocommit(False)
         if not test.testcases.connections_support_transactions():
             raise NotImplementedError('%s supports only DBs with transaction '
                                       'capabilities.' % cls.__name__)
+
+        # set all database to 'not autocommit' and store their original autocommit state
+        for db in cls._databases():
+            cls.transaction_state[db] = transaction.get_autocommit(using=db)
+            transaction.set_autocommit(False, using=db)
         cls._fixture_setup()
 
     @classmethod
@@ -277,8 +278,11 @@ class FastFixtureLiveServerTestCase(StaticLiveServerTestCase):
         # from django_nose.testcases.FastFixtureTestCase
         # Truncate the world, and turn manual commit management back off.
         cls._fixture_teardown()
+
+        # commit all changes in this transaction and set autocommit state back to original
         for db in cls._databases():
             transaction.commit(using=db)
+            transaction.set_autocommit(cls.transaction_state[db], using=db)
 
     @classmethod
     def _fixture_setup(cls):
@@ -346,7 +350,6 @@ class FastFixtureLiveServerTestCase(StaticLiveServerTestCase):
         """
         # Repeat stuff from TransactionTestCase, because I'm not calling its
         # _pre_setup, because that would load fixtures again.
-        transaction.set_autocommit(False)
         cache.cache.clear()
         settings.TEMPLATE_DEBUG = settings.DEBUG = False
 
@@ -370,6 +373,7 @@ class FastFixtureLiveServerTestCase(StaticLiveServerTestCase):
         # Rollback any mutations made by tests:
         for db in self._databases():
             transaction.rollback(using=db)
+            # transaction.get_connection(using=db).needs_rollback = False
         self._urlconf_teardown()
         # We do not need to close the connection here to prevent
         # http://code.djangoproject.com/ticket/7572, since we commit, not
@@ -385,3 +389,4 @@ class FastFixtureLiveServerTestCase(StaticLiveServerTestCase):
             return connections
         else:
             return [DEFAULT_DB_ALIAS]
+
