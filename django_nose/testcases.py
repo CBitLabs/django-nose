@@ -134,6 +134,7 @@ class FastFixtureTestCase(test.TransactionTestCase):
         # cached the mutated stuff:
         from django.contrib.sites.models import Site
         Site.objects.clear_cache()
+
     def _post_teardown(self):
         """Re-enable transaction methods, and roll back any changes.
 
@@ -144,7 +145,8 @@ class FastFixtureTestCase(test.TransactionTestCase):
         # Rollback any mutations made by tests:
         for db in self._databases():
             transaction.rollback(using=db)
-            # transaction.get_connection(using=db).needs_rollback = False
+            transaction.get_connection(using=db).needs_rollback = False
+
         # We do not need to close the connection here to prevent
         # http://code.djangoproject.com/ticket/7572, since we commit, not
         # rollback, the test fixtures and thus any cursor startup statements.
@@ -373,7 +375,8 @@ class FastFixtureLiveServerTestCase(StaticLiveServerTestCase):
         # Rollback any mutations made by tests:
         for db in self._databases():
             transaction.rollback(using=db)
-            # transaction.get_connection(using=db).needs_rollback = False
+            transaction.get_connection(using=db).needs_rollback = False
+
         self._urlconf_teardown()
         # We do not need to close the connection here to prevent
         # http://code.djangoproject.com/ticket/7572, since we commit, not
